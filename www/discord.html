@@ -56,8 +56,10 @@
     window.location.href = "riuam-app://profile?mode=discord&data=" + tempData;
 }
                 } catch(e) {
-                    document.getElementById('msg').innerText = "エラーが発生しました。";
-                }
+    // 画面にエラーの内容をデカデカと表示させる！
+    alert("エラーの詳細: " + e.message);
+    document.getElementById('msg').innerText = "エラー: " + e.message;
+}
             }
         };
     </script>
