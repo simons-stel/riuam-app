@@ -17,8 +17,8 @@ jobs:
           
       - name: Build Xcode Archive
         run: |
-          xcodebuild -workspace ios/App/App.xcworkspace \
-                     -scheme App \
+          xcodebuild -project ios/App/App.xcodeproj \
+           　　　　-scheme App \
                      -configuration Release \
                      -sdk iphoneos \
                      -archivePath App.xcarchive \
