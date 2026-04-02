@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RIUAM - Ultimate Dashboard</title>
+    <style>
+        :root { --primary: #ff4d4d; --bg: #0e0e0e; --card: #1a1a1a; --text: #eee; }
+        body { background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; margin: 0; padding-bottom: 20px; -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
+        
+        /* ナビ */
+        nav { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; background: rgba(0,0,0,0.8); backdrop-filter: blur(15px); position: sticky; top: 0; z-index: 100; border-bottom: 1px solid #333; }
+        .avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 1.5px solid var(--primary); }
+
+        /* レイアウト */
+        .container { max-width: 600px; margin: 0 auto; padding: 15px; }
+        .card { background: var(--card); border-radius: 18px; padding: 20px; margin-bottom: 15px; border: 1px solid #2a2a2a; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        
+        /* ボタン */
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+        .btn { padding: 14px; border-radius: 12px; border: 1px solid #3a3a3a; background: #252525; color: white; cursor: pointer; font-weight: bold; font-size: 13px; transition: 0.2s; position: relative; }
+        .btn:active { transform: scale(0.96); background: var(--primary); }
+        .badge-dot { position: absolute; top: 2px; right: 2px; width: 10px; height: 10px; background: #ff4d4d; border-radius: 50%; border: 2px solid var(--card); }
+
+        /* リストUI */
+        .list-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid #222; cursor: pointer; }
+        .small-avatar { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; }
+        .user-name { flex: 1; font-weight: bold; font-size: 14px; }
+
+        /* DMレイヤー */
+        #dm-layer { display: none; position: fixed; inset: 0; background: #000; z-index: 2000; flex-direction: column; }
+        .chat-header { padding: 10px 15px; border-bottom: 1px solid #222; display: flex; align-items: center; gap: 10px; background: #111; }
+        .chat-msgs { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; background: #080808; }
+        
+        /* 吹き出し */
+        .msg { padding: 10px 14px; border-radius: 18px; max-width: 80%; font-size: 15px; line-height: 1.4; word-wrap: break-word; position: relative; white-space: pre-wrap; }
+        .msg.me { align-self: flex-end; background: var(--primary); color: white; border-bottom-right-radius: 4px; }
+        .msg.you { align-self: flex-start; background: #2a2a2a; border-bottom-left-radius: 4px; }
+        .msg img, .msg video { max-width: 100%; border-radius: 10px; margin-top: 5px; display: block; }
+
+        /* 絵文字ピッカー */
+        #emoji-picker { 
+            display: none; position: absolute; bottom: 70px; left: 5%; width: 90%; max-width: 400px; height: 250px; 
+            background: #222; border: 1px solid #444; border-radius: 15px; z-index: 3000; flex-direction: column; box-shadow: 0 -5px 20px rgba(0,0,0,0.5);
+        }
+        .emoji-tabs { display: flex; overflow-x: auto; background: #111; padding: 8px; gap: 5px; border-top-left-radius: 15px; border-top-right-radius: 15px; }
+        .emoji-tabs button { background: #333; color: white; border: none; padding: 6px 10px; border-radius: 8px; white-space: nowrap; font-size: 12px; flex-shrink: 0; }
+        .emoji-content { flex: 1; overflow-y: auto; padding: 10px; display: block; }
+        .emoji-content span { font-size: 26px; cursor: pointer; padding: 5px; display: inline-block; width: 40px; text-align: center; }
+
+        /* 入力エリア */
+        .chat-input-wrap { padding: 12px; background: #161616; display: flex; align-items: center; gap: 10px; border-top: 1px solid #333; position: relative; }
+        /* 改行対応のため textarea に変更し、高さを自動調整するスタイルに */
+        .chat-input-wrap textarea { 
+            flex: 1; padding: 12px 15px; background: #222; border: 1px solid #333; color: white; border-radius: 20px; 
+            outline: none; font-size: 16px; resize: none; height: 24px; font-family: inherit; line-height: 1.5;
+        }
+        .chat-input-wrap textarea:focus { border-color: var(--primary); }
+        .icon-btn { font-size: 24px; cursor: pointer; user-select: none; color: #888; transition: 0.2s; }
+        .icon-btn:hover { color: var(--primary); }
+        
+        #toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: #4dff4d; color: #000; padding: 10px 20px; border-radius: 20px; font-weight: bold; opacity: 0; transition: 0.3s; z-index: 9999; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+    <script>
+        // --- [超重要] ログインチェック：真っ先に実行 ---
+        const me = JSON.parse(localStorage.getItem("riuam_session") || sessionStorage.getItem("riuam_session"));
+        if(!me) {
+            alert("ログインが必要です。Discordでログインしてください。");
+            location.href = "index.html"; 
+        }
+    </script>
+
+    <nav>
+        <div style="font-weight: 900; color: var(--primary); font-size: 18px;">RIUAM</div>
+        <div class="nav-user"><img id="navIcon" class="avatar" src=""></div>
+    </nav>
+
+    <div class="container">
+        <div class="card" style="text-align: center;">
+            <img id="mainIcon" src="" style="width: 80px; height: 80px; border-radius: 50%; border: 3px solid var(--primary); object-fit: cover;">
+            <h3 id="mainName" style="margin: 10px 0 2px 0;"></h3>
+            <p id="mainId" style="color: #666; margin: 0; font-size: 13px;"></p>
+            <div class="btn-grid">
+                <button class="btn" onclick="openP('search-p')">🔍 検索</button>
+                <button class="btn" onclick="openP('friends-p')">💬 友達<div id="msg-dot" class="badge-dot" style="display:none"></div></button>
+                <button class="btn" onclick="openP('req-p')">📩 申請<div id="req-count" class="badge-dot" style="display:none"></div></button>
+                <button class="btn" onclick="location.href='settings.html'">⚙️ 設定</button>
+            </div>
+        </div>
+
+        <div id="search-p" class="card" style="display:none">
+            <h4>ユーザー検索</h4>
+            <input type="text" id="sInp" placeholder="IDを入力..." style="width:100%; padding:12px; background:#222; border:1px solid #444; color:white; border-radius:10px; box-sizing:border-box;" oninput="search()">
+            <div id="sRes"></div>
+        </div>
+
+        <div id="friends-p" class="card" style="display:none">
+            <h4>友達一覧 / DM</h4>
+            <div id="fList"></div>
+        </div>
+
+        <div id="req-p" class="card" style="display:none">
+            <h4>届いている申請</h4>
+            <div id="rList"></div>
+        </div>
+    </div>
+
+    <div id="dm-layer">
+        <div class="chat-header">
+            <button onclick="closeDM()" style="background:none; border:none; color:white; font-size:24px; cursor:pointer;">✕</button>
+            <img id="dmPartnerIcon" class="avatar" src="">
+            <span id="dmPartnerName" style="font-weight:bold;">チャット</span>
+        </div>
+        
+        <div id="chatBox" class="chat-msgs"></div>
+        
+        <div id="emoji-picker">
+            <div class="emoji-tabs">
+                <button onclick="showEmojiTab('f-face')">😀</button>
+                <button onclick="showEmojiTab('f-hand')">👍</button>
+                <button onclick="showEmojiTab('f-animal')">🐶</button>
+                <button onclick="showEmojiTab('f-food')">🍔</button>
+                <button onclick="showEmojiTab('f-symbol')">❤️</button>
+            </div>
+            <div class="emoji-content" id="emoji-list"></div>
+        </div>
+
+        <div class="chat-input-wrap">
+            <span class="icon-btn" onclick="toggleEmoji()">☺︎</span>
+            <input type="file" id="fileInp" accept="image/*,video/*" style="display:none" onchange="uploadFile()">
+            <span class="icon-btn" onclick="document.getElementById('fileInp').click()">⊕</span>
+            <textarea id="chatInp" placeholder="メッセージ..." onkeydown="handleKey(event)"></textarea>
+            <button onclick="sendMsg()" style="background:var(--primary); border:none; color:white; padding:10px 18px; border-radius:20px; font-weight:bold; cursor:pointer;">送信</button>
+        </div>
+    </div>
+
+    <div id="toast"></div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script>
+        const config = {
+            apiKey: "AIzaSyBafhddrBu5i270pqEDl8i3slqJFt9k8mw",
+            authDomain: "riuam-auth.firebaseapp.com",
+            projectId: "riuam-auth",
+            storageBucket: "riuam-auth.firebasestorage.app",
+            messagingSenderId: "35798755753",
+            appId: "1:35798755753:web:d73b26ddc3209b83657cb8"
+        };
+        firebase.initializeApp(config);
+        const db = firebase.firestore();
+
+        window.onload = () => {
+            if(!me) return;
+            document.getElementById('navIcon').src = me.icon;
+            document.getElementById('mainIcon').src = me.icon;
+            document.getElementById('mainName').innerText = me.dName;
+            document.getElementById('mainId').innerText = "@" + me.userId;
+            listenNotifications();
+            initEmoji();
+        };
+
+        // --- キー操作（Shift+Enterで改行） ---
+        function handleKey(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMsg();
+            }
+            // テキストエリアの高さを文字数に合わせて調整（おまけ機能）
+            const target = e.target;
+            target.style.height = '24px';
+            target.style.height = (target.scrollHeight > 100 ? 100 : target.scrollHeight) + 'px';
+        }
+
+        const emojiData = {
+            'f-face': "😀😃😄😁😆🥹😅😂🤣🥲☺️😊😇🙂🙃😉😌😍🥰😘😗😙😚😋😛😝😜😜🤪🤨🧐🤓😎🥸🤩🥳😏😒😞😔😟😕🙁☹️😣😖😫😩🥺😢😭😮‍💨😤😠😡🤬🤯😳🥵🥶😱😨😰😥😓🫣🤗🤔🫢🤭🤫🫠🤥😶😶‍🌫️😐😑😬🫨🙄😯😦😧😮😲🥱😴🤤😪😵😵‍💫🫥🤐🥴🤢🤮🤧🤒🤕🤑🤠😈👿👹👺🤡💩👻💀☠️👽👾🤖🎃😺😸😹😻😼😽🙀😿😾",
+            'f-hand': "👋🤚🖐️✋🖖👌🤌🤏✌️🤞🫰🤟🤘🤙👈👉👆🖕👇☝️👍👎✊👊🤛🤜👏🙌👐🤲🤝🙏✍️💅🤳💪🦾🦿🦵🦶👂🦻👃🧠🫀🫁🦷🦴👀👁️👅👄",
+            'f-animal': "🐶🐱🐭🐹🐰🦊🐻🐼🐻‍❄️🐨🐯🦁🐮🐷🐽🐸🐵🙈🙉🙊🐒🐔🐧🐦🐤🐣🐥🦆🦅🦉bat🐺🐗🐴🦄🐝🪱🐛🦋🐌🐞🐜🪰🪲🪳🦟 cricket🕷️🕸️🦂🐢 snakes🦎🦖🦕🐙🦑🦐🦞🦀🐡🐠🐟🐬🐳🐋🦈🐊🐅🐆🦓🦍🦧 elephant🦛🦏🐪🐫🦒🦘🦬🐃🐂🐄🐎🐖🐏🐑🐐 deer🐕🐩🐈🐈‍⬛🐓🦃🦚 parrot🦢🦩🕊️🐇🦝🦨🦡🦦🦥🐁🐀🐿️🦔🐾🐉🐲",
+            'f-food': "🍏🍎🍐🍊🍋🍌🍉🍇🍓🫐🍈🍒🍑🥭🍍🥥🥝🍅🍆🥑🥦🥬🥒🌶️🫑🌽🥕🫒🧄 onion🥔🍠🥐 bagel🍞🥖🥨🧀🥚🍳🧈🥞🧇🥓🥩🍗🍖🌭🍔🍟🍕🥪🥙🧆🌮 burrito🫔🥗🥘🫕🥣🍝🍜🍲 curry🍣🍱🥟🍤🍙🍚🍘🍥🥠🍢🍡🍧🍨🍦🥧🍰🎂🧁🍭🍬🍫🍿🍩🍪🌰 peanuts🍯🥛☕️🫖🍵🍶🍾🍷🍸🍹🍺🍻🥂🥃🥤🧋🧃🧉🧊",
+            'f-symbol': "❤️🧡💛💚💙💜🖤🤍🤎💔❣️💕💞💓💗💖💘💝💟☮️✝️☪️🕉☸️✡️🔯🕎☯️☦️🛐⛎♈️♉️♊️♋️♌️♍️♎️♏️♐️♑️♒️♓️🆔⚛️🉑☢️☣️📴📳🈶🈚️🈸🈺🈷️✴️🆚💮🉐㊙️㊗️🈴🈵🈹🈲🅰️🅱️🆑🅾️🆘❌⭕️🛑⛔️📛🚫💯💢♨️🚷🚯🚳🚱🔞📵🚭❗️❕❓❔‼️⁉️🔅🔆〽️⚠️🚸🔱⚜️🔰♻️✅💹🈯️❇️✳️❎🌐💠Ⓜ️🌀💤"
+        };
+
+        function initEmoji() { showEmojiTab('f-face'); }
+        function showEmojiTab(category) {
+            const list = document.getElementById('emoji-list');
+            list.innerHTML = "";
+            const segmenter = new Intl.Segmenter('ja', { granularity: 'grapheme' });
+            for (const segment of segmenter.segment(emojiData[category])) {
+                const span = document.createElement('span');
+                span.innerText = segment.segment;
+                span.onclick = () => addEmoji(segment.segment);
+                list.appendChild(span);
+            }
+        }
+        function addEmoji(e) { document.getElementById('chatInp').value += e; }
+        function toggleEmoji() { const p = document.getElementById('emoji-picker'); p.style.display = p.style.display === 'flex' ? 'none' : 'flex'; }
+
+        function openP(id) {
+            const el = document.getElementById(id);
+            const isVisible = el.style.display === 'block';
+            document.querySelectorAll('.container > div:not(.card:first-child)').forEach(p => p.style.display = 'none');
+            el.style.display = isVisible ? 'none' : 'block';
+            if(id === 'friends-p') loadFriends();
+            if(id === 'req-p') loadRequests();
+        }
+
+        async function loadFriends() {
+            const snap = await db.collection("user").doc(me.userId).collection("friends").get();
+            const list = document.getElementById('fList');
+            list.innerHTML = snap.size === 0 ? "友達がいません" : "";
+            snap.forEach(doc => {
+                const f = doc.data();
+                list.innerHTML += `<div class="list-item" onclick="openDM('${f.userId}','${f.name}','${f.icon}')"><img src="${f.icon}" class="small-avatar"><span class="user-name">${f.name}</span><span>＞</span></div>`;
+            });
+        }
+
+        let chatUnsub = null; let activeChatId = "";
+        async function openDM(id, name, icon) {
+            document.getElementById('dm-layer').style.display = 'flex';
+            document.getElementById('dmPartnerName').innerText = name;
+            document.getElementById('dmPartnerIcon').src = icon;
+            activeChatId = [me.userId, id].sort().join("_");
+            chatUnsub = db.collection("chats").doc(activeChatId).collection("messages").orderBy("time", "asc").onSnapshot(s => {
+                const box = document.getElementById('chatBox'); box.innerHTML = "";
+                s.forEach(m => {
+                    const d = m.data(); const c = d.sender === me.userId ? "me" : "you";
+                    let content = d.text || "";
+                    if(d.type === 'image') content = `<img src="${d.url}">`;
+                    if(d.type === 'video') content = `<video src="${d.url}" controls></video>`;
+                    box.innerHTML += `<div class="msg ${c}">${content}</div>`;
+                });
+                box.scrollTop = box.scrollHeight;
+            });
+        }
+
+        async function sendMsg() {
+            const i = document.getElementById('chatInp'); if(!i.value.trim()) return;
+            const text = i.value; i.value = ""; i.style.height = '24px'; // 送信後に高さを戻す
+            await db.collection("chats").doc(activeChatId).collection("messages").add({ sender: me.userId, text: text, type: 'text', time: firebase.firestore.FieldValue.serverTimestamp() });
+            document.getElementById('emoji-picker').style.display = 'none';
+        }
+
+        function uploadFile() {
+            const file = document.getElementById('fileInp').files[0];
+            if(!file) return;
+            if(file.size > 1000000) { alert("1MB以上のファイルはアップロードできません。"); return; }
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const type = file.type.startsWith('image') ? 'image' : 'video';
+                await db.collection("chats").doc(activeChatId).collection("messages").add({ sender: me.userId, url: e.target.result, type: type, time: firebase.firestore.FieldValue.serverTimestamp() });
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function closeDM() { if(chatUnsub) chatUnsub(); document.getElementById('dm-layer').style.display = 'none'; }
+        function listenNotifications() {
+            db.collection("requests").where("to", "==", me.userId).where("status", "==", "pending").onSnapshot(s => {
+                document.getElementById('req-count').style.display = s.size > 0 ? 'block' : 'none';
+            });
+        }
+        async function search() {
+            const q = document.getElementById('sInp').value.trim();
+            const res = document.getElementById('sRes');
+            if(q.length < 2) return;
+            const snap = await db.collection("user").where("userId", ">=", q).limit(5).get();
+            res.innerHTML = "";
+            snap.forEach(doc => {
+                const u = doc.data(); if(u.userId === me.userId) return;
+                res.innerHTML += `<div class="list-item"><img src="${u.icon}" class="small-avatar"><span class="user-name">${u.displayName}</span><button class="btn" style="padding:5px 10px" onclick="sendReq('${u.userId}')">申請</button></div>`;
+            });
+        }
+        async function sendReq(toId) {
+            await db.collection("requests").doc(`${me.userId}_${toId}`).set({ from: me.userId, fromName: me.dName, fromIcon: me.icon, to: toId, status: "pending" });
+            toast("申請完了！");
+        }
+        async function loadRequests() {
+            const snap = await db.collection("requests").where("to", "==", me.userId).where("status", "==", "pending").get();
+            const list = document.getElementById('rList');
+            list.innerHTML = snap.size === 0 ? "なし" : "";
+            snap.forEach(doc => {
+                const r = doc.data();
+                list.innerHTML += `<div class="list-item"><img src="${r.fromIcon}" class="small-avatar"><span class="user-name">${r.fromName}</span><button class="btn" style="padding:5px 10px" onclick="accept('${doc.id}','${r.from}','${r.fromName}','${r.fromIcon}')">許可</button></div>`;
+            });
+        }
+        async function accept(did, fid, fn, fi) {
+            const batch = db.batch();
+            batch.set(db.collection("user").doc(me.userId).collection("friends").doc(fid), { userId: fid, name: fn, icon: fi });
+            batch.set(db.collection("user").doc(fid).collection("friends").doc(me.userId), { userId: me.userId, name: me.dName, icon: me.icon });
+            batch.delete(db.collection("requests").doc(did));
+            await batch.commit(); toast("友達になりました！"); loadRequests();
+        }
+        function toast(m) { const t = document.getElementById('toast'); t.innerText = m; t.style.opacity = 1; setTimeout(()=>t.style.opacity=0, 2000); }
+    </script>
+</body>
+</html>

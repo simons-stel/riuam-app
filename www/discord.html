@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Riuam - Syncing...</title>
+    <style>body { background: #0e0e0e; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; }</style>
+</head>
+<body>
+    <div style="text-align:center;"><h2 id="msg">Discordと同期中...</h2></div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBafhddrBu5i270pqEDl8i3slqJFt9k8mw",
+            authDomain: "riuam-auth.firebaseapp.com",
+            projectId: "riuam-auth",
+            storageBucket: "riuam-auth.firebasestorage.app",
+            messagingSenderId: "35798755753",
+            appId: "1:35798755753:web:d73b26ddc3209b83657cb8"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        window.onload = async () => {
+            const hash = window.location.hash;
+            if (!hash) { location.href = "index.html"; return; }
+            const params = new URLSearchParams(hash.substring(1));
+            const token = params.get("access_token");
+
+            if (token) {
+                try {
+                    const res = await fetch('https://discord.com/api/users/@me', { headers: { authorization: `Bearer ${token}` } });
+                    const user = await res.json();
+                    
+                    const discordData = { 
+                        dName: user.global_name || user.username, 
+                        userId: user.username, 
+                        icon: user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : "https://via.placeholder.com/150"
+                    };
+
+                    // Firestoreにすでにユーザーがいるか確認
+                    const userDoc = await db.collection("user").doc(user.username).get();
+
+                    if (userDoc.exists) {
+    // 【登録済み】アプリの「riuam-app://home」へ飛ばす！
+    const sessionData = encodeURIComponent(JSON.stringify({ 
+        userId: userDoc.data().userId, 
+        dName: userDoc.data().displayName, 
+        icon: userDoc.data().icon 
+    }));
+    window.location.href = "riuam-app://home";
+} else {
+    // 【未登録】アプリの「riuam-app://profile」へ飛ばす！
+    const tempData = encodeURIComponent(JSON.stringify(discordData));
+    window.location.href = "riuam-app://profile?mode=discord&data=" + tempData;
+}
+                } catch(e) {
+                    document.getElementById('msg').innerText = "エラーが発生しました。";
+                }
+            }
+        };
+    </script>
+</body>
+</html>

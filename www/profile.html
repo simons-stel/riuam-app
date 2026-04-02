@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Riuam - Final Setup</title>
+    <style>
+        :root { --primary: #ff4d4d; --bg: #0e0e0e; --card: #161616; --input: #222; }
+        body { background-color: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { text-align: center; background: var(--card); padding: 45px 35px; border-radius: 24px; width: 350px; border: 1px solid #252525; box-shadow: 0 20px 50px rgba(0,0,0,0.7); }
+        h2 { font-size: 24px; font-weight: 800; margin-bottom: 20px; letter-spacing: 2px; }
+        .icon-wrapper { margin-bottom: 20px; }
+        #icon-preview { width: 100px; height: 100px; border-radius: 50%; border: 3px solid var(--primary); object-fit: cover; }
+        .input-field { width: 100%; padding: 14px; margin: 10px 0; border-radius: 10px; border: 1px solid #333; background: var(--input); color: white; box-sizing: border-box; outline: none; }
+        .input-field[readonly] { color: #555; cursor: not-allowed; }
+        .btn { display: block; width: 100%; padding: 14px; margin: 15px 0; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; transition: 0.3s; }
+        .red-btn { background: linear-gradient(135deg, #ff4d4d 0%, #c41e1e 100%); color: white; }
+        #profileLog { font-size: 12px; margin-top: 10px; min-height: 1.5em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>FINAL SETUP</h2>
+        <div class="icon-wrapper"><img id="icon-preview" src=""></div>
+        <p style="color: #777; font-size: 13px;">Discord連携完了！最後にパスワードを決めてね。</p>
+        
+        <input type="text" id="userId" class="input-field" readonly>
+        <input type="text" id="displayName" placeholder="Display Name" class="input-field">
+        <input type="password" id="password" placeholder="New Password (6文字以上)" class="input-field">
+        <input type="password" id="confirmPassword" placeholder="Confirm Password" class="input-field">
+        
+        <button id="finalSubmitBtn" class="btn red-btn">Start Riuam Life</button>
+        <p id="profileLog"></p>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBafhddrBu5i270pqEDl8i3slqJFt9k8mw",
+            authDomain: "riuam-auth.firebaseapp.com",
+            projectId: "riuam-auth",
+            storageBucket: "riuam-auth.firebasestorage.app",
+            messagingSenderId: "35798755753",
+            appId: "1:35798755753:web:d73b26ddc3209b83657cb8"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        const log = (msg, color="gray") => { const el = document.getElementById('profileLog'); el.innerText = msg; el.style.color = color; };
+
+        window.onload = () => {
+            const temp = JSON.parse(sessionStorage.getItem("discord_temp"));
+            if (!temp) { location.href = "index.html"; return; }
+            
+            document.getElementById('icon-preview').src = temp.icon;
+            document.getElementById('userId').value = temp.userId;
+            document.getElementById('displayName').value = temp.dName;
+        };
+
+        document.getElementById('finalSubmitBtn').onclick = async () => {
+            const userId = document.getElementById('userId').value;
+            const dName = document.getElementById('displayName').value;
+            const pass = document.getElementById('password').value;
+            const conf = document.getElementById('confirmPassword').value;
+            const icon = document.getElementById('icon-preview').src;
+
+            if (pass.length < 6) return log("パスワードは6文字以上にしてください", "#ff4d4d");
+            if (pass !== conf) return log("パスワードが一致しません", "#ff4d4d");
+
+            log("Creating account...", "#888");
+
+            try {
+                await db.collection("user").doc(userId).set({
+                    userId: userId,
+                    displayName: dName,
+                    password: pass,
+                    icon: icon,
+                    role: "MEMBER", // ← ここで初期ロールをセット！
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                const loginData = JSON.stringify({ userId: userId, dName: dName, icon: icon });
+                localStorage.setItem("riuam_session", loginData);
+                log("登録完了！", "#4dff4d");
+                setTimeout(() => location.href = "home.html", 1000);
+            } catch (e) { log("Error: " + e.message, "#ff4d4d"); }
+        };
+    </script>
+</body>
+</html>

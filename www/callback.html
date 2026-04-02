@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Riuam Appに戻っています...</title>
+</head>
+<body>
+    <p>アプリに自動で戻ります。戻らない場合は下のボタンを押してください。</p>
+    <a id="open-app" href="#">アプリを開く</a>
+
+    <script>
+        // 現在のURL（Discordからの認証情報が入ってる）を取得
+        const currentUrl = window.location.href;
+        // 独自スキーム「riuam-app://callback」に情報をくっつける
+        const appUrl = currentUrl.replace(window.location.origin + window.location.pathname, "riuam-app://callback");
+
+        // ボタンにURLを設定
+        document.getElementById('open-app').href = appUrl;
+
+        // 自動でアプリを起動！
+        window.location.href = appUrl;
+
+        // 3秒たっても反応がなければ、もう一度試す
+        setTimeout(() => {
+            window.location.href = appUrl;
+        }, 3000);
+    </script>
+</body>
+</html>

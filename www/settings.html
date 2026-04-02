@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Riuam - Settings</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+    <style>
+        :root { --primary: #ff4d4d; --bg: #0e0e0e; --card: #161616; --input: #222; }
+        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; padding: 40px 20px; margin: 0; }
+        .container { width: 100%; max-width: 500px; background: var(--card); padding: 40px; border-radius: 24px; border: 1px solid #333; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h2 { border-bottom: 2px solid var(--primary); padding-bottom: 10px; margin-bottom: 30px; letter-spacing: 2px; }
+        .section { margin-bottom: 30px; padding: 25px; background: rgba(255,255,255,0.02); border-radius: 15px; border: 1px solid rgba(255,255,255,0.05); }
+        label { display: block; font-size: 12px; color: #888; margin-bottom: 8px; font-weight: bold; }
+        .input-field { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #444; background: var(--input); color: white; box-sizing: border-box; outline: none; transition: 0.3s; }
+        .input-field:focus { border-color: var(--primary); }
+        
+        /* アイコン編集エリア */
+        .icon-edit-wrapper { text-align: center; margin-bottom: 20px; }
+        .current-icon { width: 120px; height: 120px; border-radius: 50%; border: 3px solid var(--primary); object-fit: cover; box-shadow: 0 0 15px rgba(255, 77, 77, 0.3); }
+        .blue-text-btn { background: none; color: #5865F2; border: none; cursor: pointer; font-size: 13px; font-weight: bold; text-decoration: underline; padding: 10px; display: inline-block; }
+
+        .btn { width: 100%; padding: 14px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+        .save-btn { background: linear-gradient(135deg, #ff4d4d 0%, #c41e1e 100%); color: white; box-shadow: 0 4px 10px rgba(255, 77, 77, 0.2); }
+        .save-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(255, 77, 77, 0.4); }
+        .save-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+        
+        .back-btn { background: transparent; color: #777; margin-top: 20px; border: 1px solid #444; }
+        .back-btn:hover { background: rgba(255,255,255,0.05); color: white; }
+        
+        #log { font-size: 13px; text-align: center; margin-top: 15px; min-height: 1.5em; font-weight: 600; }
+        .id-timer { font-size: 11px; color: #ff9900; margin-top: -10px; margin-bottom: 15px; font-weight: bold; }
+
+        /* クロップモーダル (mail.html から移植) */
+        #cropper-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; flex-direction: column; align-items: center; justify-content: center; }
+        .cropper-container { width: 90%; max-width: 400px; aspect-ratio: 1; background: #000; border-radius: 12px; overflow: hidden; border: 2px solid #333; }
+        #cropper-image { max-width: 100%; }
+        .crop-done-btn { width: 200px; margin-top: 25px; background: #4dff4d; color: black; } /* 完了は緑にしてみた */
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>SETTINGS</h2>
+        
+        <div class="section">
+            <label>Profile Icon (無制限)</label>
+            <div class="icon-edit-wrapper">
+                <img id="icon-preview" class="current-icon" src="">
+                <br>
+                <input type="file" id="icon-input" accept="image/*" style="display:none">
+                <button class="blue-text-btn" onclick="document.getElementById('icon-input').click()">Upload New Icon</button>
+            </div>
+
+            <label>Display Name (無制限)</label>
+            <input type="text" id="editDName" class="input-field" placeholder="表示名">
+            <button onclick="updateProfile()" class="btn save-btn">プロフィールを更新</button>
+        </div>
+
+        <div class="section">
+            <label>User ID (1週間に1回のみ変更可能)</label>
+            <input type="text" id="editUserId" class="input-field" placeholder="user_id">
+            <p id="idTimer" class="id-timer"></p>
+            <button id="idBtn" onclick="updateUserId()" class="btn save-btn">IDを変更する</button>
+        </div>
+
+        <div class="section">
+            <label>New Password (6〜200文字)</label>
+            <input type="password" id="newPass" class="input-field" placeholder="新しいパスワード">
+            <input type="password" id="confPass" class="input-field" placeholder="パスワード確認">
+            <button onclick="updatePassword()" class="btn save-btn">パスワードを変更</button>
+        </div>
+
+        <p id="log"></p>
+        <button onclick="location.href='home.html'" class="btn back-btn">← Back to Dashboard</button>
+    </div>
+
+    <div id="cropper-modal">
+        <div class="cropper-container">
+            <img id="cropper-image">
+        </div>
+        <button id="cropDoneBtn" class="btn crop-done-btn">Crop & Done</button>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBafhddrBu5i270pqEDl8i3slqJFt9k8mw",
+            authDomain: "riuam-auth.firebaseapp.com",
+            projectId: "riuam-auth",
+            storageBucket: "riuam-auth.firebasestorage.app",
+            messagingSenderId: "35798755753",
+            appId: "1:35798755753:web:d73b26ddc3209b83657cb8"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // セッション確認
+        let currentData = JSON.parse(localStorage.getItem("riuam_session") || sessionStorage.getItem("riuam_session"));
+        if (!currentData) location.href = "index.html";
+
+        const log = (msg, color="gray") => { const e = document.getElementById('log'); e.innerText = msg; e.style.color = color; };
+
+        // グローバル変数 (クロッパー用)
+        let cropper;
+        let finalIconBase64 = ""; // ここに切り抜いた画像が入る
+
+        // --- ページ読み込み時の処理 ---
+        window.onload = async () => {
+            log("Loading...", "#888");
+            try {
+                const doc = await db.collection("user").doc(currentData.userId).get();
+                if (!doc.exists) return location.href = "index.html";
+                const data = doc.data();
+
+                // 画面に反映
+                document.getElementById('editDName').value = data.displayName || "";
+                document.getElementById('editUserId').value = data.userId || "";
+                
+                // 現在のアイコンを表示
+                document.getElementById('icon-preview').src = data.icon || "https://via.placeholder.com/150";
+                finalIconBase64 = data.icon || ""; // 初期値として設定
+
+                // ID変更制限のチェック (1週間 = 168時間)
+                if (data.lastIdUpdate) {
+                    const lastUpdate = data.lastIdUpdate.toDate().getTime();
+                    const now = Date.now();
+                    const diff = now - lastUpdate;
+                    const weekMs = 7 * 24 * 60 * 60 * 1000; // 7日間のミリ秒
+                    
+                    if (diff < weekMs) {
+                        // 残り時間を計算 (時間単位で切り上げ)
+                        const remaining = Math.ceil((weekMs - diff) / (1000 * 60 * 60));
+                        const idBtn = document.getElementById('idBtn');
+                        idBtn.disabled = true; // ボタン無効化
+                        document.getElementById('idTimer').innerText = `IDは次の変更まであと約 ${remaining} 時間ロックされています`;
+                    }
+                }
+                log(""); // ログをクリア
+            } catch (e) { log("Error loading data", "#ff4d4d"); }
+        };
+
+        // --- 画像切り抜きロジック (mail.html から移植・調整) ---
+        const iconInput = document.getElementById('icon-input');
+        
+        // ファイルが選択されたらモーダルを開く
+        iconInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            // 画像ファイルかチェック
+            if (!file.type.startsWith('image/')) return log("画像ファイルを選択してください", "#ff4d4d");
+
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const modal = document.getElementById('cropper-modal');
+                const img = document.getElementById('cropper-image');
+                img.src = ev.target.result; // 読み込んだ画像をセット
+                modal.style.display = 'flex'; // モーダル表示
+
+                // 以前のクロッパーインスタンスがあれば破棄
+                if (cropper) cropper.destroy();
+                
+                // Cropper.js 初期化 (正方形固定)
+                cropper = new Cropper(img, {
+                    aspectRatio: 1, // 1:1固定
+                    viewMode: 1,    // キャンバス外に出さない
+                    dragMode: 'move', // 画像を動かすモード
+                    background: false, // 背景の市松模様を消す
+                    ready() {
+                        // 準備ができたら操作可能
+                    }
+                });
+            };
+            reader.readAsDataURL(file);
+        };
+
+        // クロップ完了ボタン
+        document.getElementById('cropDoneBtn').onclick = () => {
+            if (!cropper) return;
+
+            // 150x150のキャンバスを取得し、Base64 (JPEG, 画質0.7) に変換
+            finalIconBase64 = cropper.getCroppedCanvas({ width: 150, height: 150 }).toDataURL('image/jpeg', 0.7);
+            
+            // 画面上のプレビューを更新
+            document.getElementById('icon-preview').src = finalIconBase64;
+            
+            // モーダルを閉じる
+            document.getElementById('cropper-modal').style.display = 'none';
+            log("New icon ready. Don't forget to save!", "#4dff4d");
+        };
+
+
+        // --- セーブ処理群 ---
+
+        // プロフィール（表示名・アイコン）の保存
+        async function updateProfile() {
+            const dName = document.getElementById('editDName').value;
+            // finalIconBase64 にはクロップ後の画像が入っている
+            
+            if(!dName) return log("Display Name is required", "#ff4d4d");
+            if(!finalIconBase64) return log("Icon is required", "#ff4d4d"); // 通常ありえないが
+
+            log("Saving Profile...", "#888");
+            try {
+                await db.collection("user").doc(currentData.userId).update({ 
+                    displayName: dName, 
+                    icon: finalIconBase64 // Base64データをそのままFirestoreに保存
+                });
+                
+                // ローカルのセッションデータも更新して整合性を保つ
+                currentData.dName = dName;
+                currentData.icon = finalIconBase64;
+                saveSession(currentData);
+                log("Profile updated successfully!", "#4dff4d");
+            } catch (e) { log("Failed to update profile", "#ff4d4d"); }
+        }
+
+        // ユーザーIDの更新 (週1回・高度な処理)
+        async function updateUserId() {
+            const newId = document.getElementById('editUserId').value.trim();
+            // バリデーション：半角英数字と . - _ のみ
+            const pattern = /^[a-zA-Z0-9._-]+$/;
+            
+            if (!pattern.test(newId)) return log("ID can only contain letters, numbers, '.', '-', '_'", "#ff4d4d");
+            if (newId === currentData.userId) return log("No change in ID", "#888");
+
+            log("Checking ID availability...", "#888");
+            const check = await db.collection("user").doc(newId).get();
+            if (check.exists) return log("This ID is already taken", "#ff4d4d");
+
+            if (!confirm(`本当にIDを「${newId}」に変更しますか？\n変更後、1週間は再変更できません。`)) return;
+
+            log("Updating ID (This may take a moment)...", "#888");
+            try {
+                // FirestoreはドキュメントIDを変更できないため、「コピーして新規作成 → 古いものを削除」を行う
+                const oldDocRef = db.collection("user").doc(currentData.userId);
+                const newDocRef = db.collection("user").doc(newId);
+
+                const doc = await oldDocRef.get();
+                const data = doc.data();
+
+                // データを更新
+                data.userId = newId;
+                data.lastIdUpdate = firebase.firestore.FieldValue.serverTimestamp(); // 現在時刻を記録
+
+                // バッチ処理でアトミック（同時）に実行
+                const batch = db.batch();
+                batch.set(newDocRef, data); // 新しいIDで作成
+                batch.delete(oldDocRef);   // 古いIDを削除
+                await batch.commit();
+
+                // セッションを更新
+                currentData.userId = newId;
+                saveSession(currentData);
+                
+                log("ID updated! Reloading...", "#4dff4d");
+                // IDが変わるとURL等の整合性が崩れるため、強制リロード
+                setTimeout(() => location.reload(), 1500);
+
+            } catch (e) { log("Critical error during ID update", "#ff4d4d"); }
+        }
+
+        // パスワードの更新
+        async function updatePassword() {
+            const p1 = document.getElementById('newPass').value;
+            const p2 = document.getElementById('confPass').value;
+            
+            if (!p1) return log("Enter new password", "#ff4d4d");
+            // バリデーション：6〜200文字
+            if (p1.length < 6 || p1.length > 200) return log("Password must be 6-200 characters", "#ff4d4d");
+            if (p1 !== p2) return log("Passwords do not match", "#ff4d4d");
+
+            log("Updating password...", "#888");
+            try {
+                await db.collection("user").doc(currentData.userId).update({ password: p1 });
+                log("Password updated successfully!", "#4dff4d");
+                // 入力欄をクリア
+                document.getElementById('newPass').value = "";
+                document.getElementById('confPass').value = "";
+            } catch (e) { log("Failed to update password", "#ff4d4d"); }
+        }
+
+        // セッションデータをLocalStorageとSessionStorage両方に保存する関数
+        function saveSession(data) {
+            const str = JSON.stringify(data);
+            if (localStorage.getItem("riuam_session")) localStorage.setItem("riuam_session", str);
+            sessionStorage.setItem("riuam_session", str);
+        }
+    </script>
+</body>
+</html>
