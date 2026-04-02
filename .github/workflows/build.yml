@@ -5,7 +5,9 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 22
 
@@ -18,7 +20,7 @@ jobs:
       - name: Build Xcode Archive
         run: |
           xcodebuild -project ios/App/App.xcodeproj \
-           　　　　-scheme App \
+                     -scheme App \
                      -configuration Release \
                      -sdk iphoneos \
                      -archivePath App.xcarchive \
