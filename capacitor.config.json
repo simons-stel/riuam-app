@@ -3,3 +3,15 @@
   "appName": "Riuam",
   "webDir": "www"
 }
+
+{
+  "appId": "com.riuam.app",
+  "appName": "Riuam",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "ios": {
+    "scheme": "riuam-app" 
+  }
+}
